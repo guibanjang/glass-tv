@@ -126,6 +126,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Where the shelf's bottom edge belongs; its top follows once the lines have been measured. */
     private float heroBottom;
     private View btnInputs;
+    /** The top-bar button that shows the next wallpaper now; hidden unless there are two or more. */
+    private View btnWallpaper;
     private TextView btnWifi;
     private TextView shamsiDate;
     private boolean shamsi;
@@ -346,7 +348,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         // The grid only shows the shape on the tray.
         glider.addCompanion(grid, tray.area);
-        for (int id : new int[]{R.id.btnInputs, R.id.btnWifi, R.id.btnSettings}) {
+        for (int id : new int[]{R.id.btnInputs, R.id.btnWifi, R.id.btnWallpaper, R.id.btnSettings}) {
             View pill = findViewById(id);
             pill.setBackground(new GlassDrawable(pill, 21 * density, density, glider));
             glider.addCompanion(pill);
@@ -426,6 +428,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             open(systemIntent(Settings.ACTION_WIFI_SETTINGS));
             return true;
         });
+        btnWallpaper = findViewById(R.id.btnWallpaper);
+        btnWallpaper.setOnClickListener(v -> {
+            if (wallpapers.size() < 2) return;
+            showNextWallpaper(true);
+            // The interval starts again from this picture, so the next one is not due a moment later.
+            startWallpaperRotation();
+        });
+        updateWallpaperButton();
         btnSettings.setOnClickListener(v -> open(systemIntent(Settings.ACTION_SETTINGS)));
         btnSettings.setOnLongClickListener(v -> {
             if (!moduleCards) return false;   // off: a long press does nothing, as before the feature
@@ -447,13 +457,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 // The left end is Inputs, or Wi-Fi on a box without inputs, or Settings when both are gone.
                 return v.getId() == R.id.btnInputs
                         || (v.getId() == R.id.btnWifi && btnInputs.getVisibility() != View.VISIBLE)
+                        || (v.getId() == R.id.btnWallpaper && btnInputs.getVisibility() != View.VISIBLE
+                            && btnWifi.getVisibility() != View.VISIBLE)
                         || (v.getId() == R.id.btnSettings && btnInputs.getVisibility() != View.VISIBLE
-                            && btnWifi.getVisibility() != View.VISIBLE);
+                            && btnWifi.getVisibility() != View.VISIBLE
+                            && btnWallpaper.getVisibility() != View.VISIBLE);
             }
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
+        btnWallpaper.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
 
         // Hide the glass when focus leaves the tiles.
@@ -553,6 +567,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         Backdrop.update(bmp, dm.widthPixels, dm.heightPixels, placesMode ? 0xFF7A7A7A : 0, wallDecoder, handler);
     }
 
+    /** The next-picture button only shows when there is a next picture to show. */
+    private void updateWallpaperButton() {
+        if (btnWallpaper != null) btnWallpaper.setVisibility(wallpapers.size() >= 2 ? View.VISIBLE : View.GONE);
+    }
+
     /** Shows the next picture from the wallpapers folder; the position survives restarts. */
     private void showNextWallpaper(boolean fade) {
         android.content.SharedPreferences prefs = getSharedPreferences("wallpaper", MODE_PRIVATE);
@@ -604,6 +623,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 // Last week's pictures are gone: show one of this week's straight away, so the
                 // name on the shelf and the picture behind it always match.
                 wallpapers = places;
+                updateWallpaperButton();
                 showNextWallpaper(wallBitmap != null);
                 if (!isFinishing() && hasWindowFocus()) startWallpaperRotation();
             });
@@ -966,7 +986,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private boolean isTopPill(View v) {
         int id = v.getId();
-        return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnSettings;
+        return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnWallpaper || id == R.id.btnSettings;
     }
 
     /** Sends the focus shape onto a pill: from a tile it glides up and narrows into the pill. */
